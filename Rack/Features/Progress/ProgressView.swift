@@ -7,6 +7,13 @@ import Charts
 struct ProgressTabView: View {
     @Query(sort: \Exercise.name) private var exercises: [Exercise]
 
+    private var weeklyVolume: Double {
+        let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        return exercises.flatMap { $0.loggedSets }
+            .filter { $0.completedAt >= oneWeekAgo }
+            .reduce(0) { $0 + ($1.weight * Double($1.reps)) }
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -31,9 +38,38 @@ struct ProgressTabView: View {
         .ignoresSafeArea()
     }
 
+    private var weeklyVolumeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("WEEKLY VOLUME")
+                .font(.caption.bold())
+                .tracking(2)
+                .foregroundStyle(.blue)
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(weeklyVolume > 0 ? String(format: "%.0f", weeklyVolume) : "\u{2014}")
+                    .font(.system(size: 34, weight: .black))
+                    .foregroundStyle(.white)
+                if weeklyVolume > 0 {
+                    Text("lbs")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text("Last 7 days")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .glassBackground()
+    }
+
     private var exerciseList: some View {
         ScrollView {
             VStack(spacing: 12) {
+                weeklyVolumeCard
+
                 ForEach(exercises) { exercise in
                     NavigationLink(destination: ExerciseProgressView(exercise: exercise)) {
                         ExerciseProgressRow(exercise: exercise)
@@ -75,46 +111,74 @@ struct ExerciseProgressRow: View {
     private var prWeight: Double { sortedSets.map(\.weight).max() ?? 0 }
 
     var body: some View {
-        HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 2)
+        HStack(spacing: 0) {
+            Rectangle()
                 .fill(exercise.muscleGroup.color)
-                .frame(width: 4, height: 44)
+                .frame(width: 4)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(exercise.name)
-                    .font(.headline)
-                HStack(spacing: 4) {
-                    Text(exercise.muscleGroup.rawValue)
-                    Text("·")
-                    Text(exercise.equipment.rawValue)
+            VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(exercise.muscleGroup.rawValue.uppercased())
+                        .font(.caption2.bold())
+                        .tracking(1.5)
+                        .foregroundStyle(exercise.muscleGroup.color.opacity(0.8))
+                    Text(exercise.name)
+                        .font(.title3.bold())
+                        .foregroundStyle(.white)
+                        .tracking(-0.3)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+
+                HStack(spacing: 14) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("LAST PR")
+                            .font(.caption2.bold())
+                            .tracking(1)
+                            .foregroundStyle(.secondary)
+                        if prWeight > 0 {
+                            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                Text("\(Int(prWeight))")
+                                    .font(.title3.bold())
+                                    .foregroundStyle(.white)
+                                Text("lbs")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Text("No data")
+                                .font(.subheadline)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+
+                    Rectangle()
+                        .fill(.white.opacity(0.12))
+                        .frame(width: 0.5, height: 28)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("SETS")
+                            .font(.caption2.bold())
+                            .tracking(1)
+                            .foregroundStyle(.secondary)
+                        Text("\(sortedSets.count)")
+                            .font(.title3.bold())
+                            .foregroundStyle(.white)
+                    }
+                }
             }
+            .padding(.leading, 14)
+            .padding(.trailing, 14)
+            .padding(.vertical, 16)
 
             Spacer()
-
-            VStack(alignment: .trailing, spacing: 4) {
-                if prWeight > 0 {
-                    Text("\(Int(prWeight)) lbs PR")
-                        .font(.subheadline.bold())
-                        .foregroundStyle(.blue)
-                } else {
-                    Text("No data")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-                Text("\(sortedSets.count) sets logged")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
 
             Image(systemName: "chevron.right")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
+                .padding(.trailing, 14)
         }
-        .padding(14)
+        .frame(maxWidth: .infinity)
         .glassBackground()
+        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 }
 
@@ -198,15 +262,15 @@ struct ExerciseProgressView: View {
         GlassCard {
             HStack(spacing: 8) {
                 StatBadge(
-                    value: pr.map { "\(Int($0.weight)) lbs" } ?? "—",
+                    value: pr.map { "\(Int($0.weight)) lbs" } ?? "\u{2014}",
                     label: "PR Weight"
                 )
                 StatBadge(
-                    value: pr.map { "\($0.reps) reps" } ?? "—",
+                    value: pr.map { "\($0.reps) reps" } ?? "\u{2014}",
                     label: "At PR"
                 )
                 StatBadge(
-                    value: totalVol > 0 ? String(format: "%.0f", totalVol) : "—",
+                    value: totalVol > 0 ? String(format: "%.0f", totalVol) : "\u{2014}",
                     label: "Total Vol. (lbs)"
                 )
             }
@@ -333,7 +397,7 @@ struct ExerciseProgressView: View {
                             Text(set.weight == 0 ? "Bodyweight" : "\(Int(set.weight)) lbs")
                                 .font(.subheadline)
                             Spacer()
-                            Text("× \(set.reps)")
+                            Text("\u{d7} \(set.reps)")
                                 .font(.subheadline.bold())
                                 .foregroundStyle(.blue)
                         }
@@ -341,11 +405,15 @@ struct ExerciseProgressView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { setToEdit = set }
                         .contextMenu {
-                            Button("Edit", systemImage: "pencil") {
+                            Button {
                                 setToEdit = set
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
                             }
-                            Button("Delete", systemImage: "trash", role: .destructive) {
+                            Button(role: .destructive) {
                                 deleteSet(set)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
                             }
                         }
 
@@ -374,7 +442,6 @@ struct QuickLogSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                // Exercise name header
                 HStack(spacing: 12) {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(exercise.muscleGroup.color)
@@ -382,7 +449,7 @@ struct QuickLogSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(exercise.name)
                             .font(.headline)
-                        Text(exercise.muscleGroup.rawValue + " · " + exercise.equipment.rawValue)
+                        Text(exercise.muscleGroup.rawValue + " \u{b7} " + exercise.equipment.rawValue)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -391,7 +458,6 @@ struct QuickLogSheet: View {
                 .padding(14)
                 .glassBackground()
 
-                // Weight
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Weight (lbs)")
                         .font(.subheadline.bold())
@@ -408,7 +474,6 @@ struct QuickLogSheet: View {
                         )
                 }
 
-                // Reps
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Reps")
                         .font(.subheadline.bold())
@@ -442,7 +507,6 @@ struct QuickLogSheet: View {
                     }
                 }
 
-                // Date
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Date")
                         .font(.subheadline.bold())
@@ -521,7 +585,6 @@ struct EditLoggedSetSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                // Exercise header
                 if let exercise = set.exercise {
                     HStack(spacing: 12) {
                         RoundedRectangle(cornerRadius: 2)
@@ -530,7 +593,7 @@ struct EditLoggedSetSheet: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(exercise.name)
                                 .font(.headline)
-                            Text(exercise.muscleGroup.rawValue + " · " + exercise.equipment.rawValue)
+                            Text(exercise.muscleGroup.rawValue + " \u{b7} " + exercise.equipment.rawValue)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -540,7 +603,6 @@ struct EditLoggedSetSheet: View {
                     .glassBackground()
                 }
 
-                // Weight
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Weight (lbs)")
                         .font(.subheadline.bold())
@@ -557,7 +619,6 @@ struct EditLoggedSetSheet: View {
                         )
                 }
 
-                // Reps
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Reps")
                         .font(.subheadline.bold())
@@ -591,7 +652,6 @@ struct EditLoggedSetSheet: View {
                     }
                 }
 
-                // Date
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Date")
                         .font(.subheadline.bold())
