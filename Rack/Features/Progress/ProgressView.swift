@@ -200,6 +200,11 @@ struct ExerciseProgressView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                Text(exercise.name)
+                    .font(.system(size: 34, weight: .black))
+                    .foregroundStyle(.white)
+                    .tracking(-0.5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 statsCard
                 timeRangePicker
                 chartCard
@@ -210,7 +215,7 @@ struct ExerciseProgressView: View {
             .padding(.bottom, 32)
         }
         .navigationTitle(exercise.name)
-        .titleDisplayMode(.large)
+        .titleDisplayMode(.inline)
         .background {
             LinearGradient(
                 colors: [Color(red: 0.04, green: 0.06, blue: 0.18), Color.black],

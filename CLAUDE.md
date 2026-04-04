@@ -104,3 +104,11 @@ App is a 2-tab SwiftUI/SwiftData app (Programs + Progress). All files building c
 
 ### Open To-Dos
 - None — branch ready to review and merge.
+
+## Session 5 — April 4 (branch: ui/stitch-redesign)
+
+### What was done
+- **Long exercise name truncation fix** — `ExerciseProgressView` was using `.titleDisplayMode(.large)` which iOS truncates to a single line. Switched to `.titleDisplayMode(.inline)` for the nav bar and added the exercise name as a large wrappable `Text` at the top of the scroll content, so any length name displays fully.
+
+### Open To-Dos
+- None.
