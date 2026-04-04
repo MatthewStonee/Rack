@@ -111,4 +111,23 @@ App is a 2-tab SwiftUI/SwiftData app (Programs + Progress). All files building c
 - **Long exercise name truncation fix** — `ExerciseProgressView` was using `.titleDisplayMode(.large)` which iOS truncates to a single line. Switched to `.titleDisplayMode(.inline)` for the nav bar and added the exercise name as a large wrappable `Text` at the top of the scroll content, so any length name displays fully.
 
 ### Open To-Dos
-- None.
+
+#### Must-Have Before App Store Submission
+- [ ] **Active workout session flow** — "Start Workout" UI that walks through a program's exercises set by set; `WorkoutSession` model exists but has no UI
+- [ ] **Settings screen** — units toggle (lbs/kg), support contact; settings icon in nav bar currently does nothing
+- [ ] **Privacy Policy** — must be hosted at a URL and linked in App Store Connect
+- [ ] **App Store assets** — screenshots (iPhone 17 Pro Max + iPad), app description, keywords, support URL
+
+#### Should Fix Before Submission
+- [ ] **iCloud CloudKit sync** — all data is local SwiftData only; app deletion loses all data; SwiftData supports CloudKit with minimal changes
+- [ ] **Reordering** — no way to reorder exercises within a workout day or reorder days within a program
+- [ ] **Onboarding** — empty app gives new users no direction; add 2–3 screen onboarding or improved empty states
+- [ ] **Profile tab** — tab bar implies a third tab that doesn't exist; either build it or remove it
+
+#### Nice to Have
+- [ ] Rest timer between sets
+- [ ] 1RM estimator (data already available)
+- [ ] Plate calculator
+- [ ] Weight in kg across charts and logs (requires units setting above)
+- [ ] Dynamic Type / accessibility audit
+- [ ] Haptic feedback on set completion
