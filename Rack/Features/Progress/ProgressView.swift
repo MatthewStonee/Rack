@@ -190,6 +190,7 @@ struct ExerciseProgressView: View {
     @State private var viewModel = ProgressViewModel()
     @State private var showingQuickLog = false
     @State private var setToEdit: LoggedSet?
+    @Namespace private var pickerNamespace
 
     private var allSets: [LoggedSet] { exercise.loggedSets.sorted { $0.completedAt < $1.completedAt } }
     private var filteredSets: [LoggedSet] { viewModel.filteredSets(allSets, for: viewModel.timeRange) }
@@ -287,17 +288,23 @@ struct ExerciseProgressView: View {
             HStack(spacing: 0) {
                 ForEach(ProgressViewModel.TimeRange.allCases, id: \.self) { range in
                     Button {
-                        viewModel.timeRange = range
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            viewModel.timeRange = range
+                        }
                     } label: {
                         Text(range.rawValue)
                             .font(.subheadline.bold())
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(
-                                viewModel.timeRange == range ? Color.blue : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 10)
-                            )
-                            .foregroundStyle(viewModel.timeRange == range ? .white : .secondary)
+                            .foregroundStyle(viewModel.timeRange == range ? Color.white : Color.secondary.opacity(0.7))
+                            .animation(.easeOut(duration: 0.2), value: viewModel.timeRange)
+                            .background {
+                                if viewModel.timeRange == range {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.blue)
+                                        .matchedGeometryEffect(id: "pickerPill", in: pickerNamespace)
+                                }
+                            }
                     }
                     .buttonStyle(.plain)
                 }
@@ -312,69 +319,73 @@ struct ExerciseProgressView: View {
                     .font(.subheadline.bold())
                     .foregroundStyle(.secondary)
 
-                if chartPoints.count < 2 {
-                    VStack(spacing: 8) {
-                        Image(systemName: "chart.line.uptrend.xyaxis")
-                            .font(.system(size: 36))
-                            .foregroundStyle(.secondary)
-                        Text("Not enough data yet")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Text("Log at least 2 sets on different days to see your chart.")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
-                } else {
-                    Chart {
-                        ForEach(chartPoints, id: \.0) { date, weight in
-                            LineMark(
-                                x: .value("Date", date),
-                                y: .value("Weight", weight)
-                            )
-                            .foregroundStyle(Color.blue)
-                            .interpolationMethod(.catmullRom)
-
-                            AreaMark(
-                                x: .value("Date", date),
-                                y: .value("Weight", weight)
-                            )
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.blue.opacity(0.3), .clear],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .interpolationMethod(.catmullRom)
-
-                            PointMark(
-                                x: .value("Date", date),
-                                y: .value("Weight", weight)
-                            )
-                            .foregroundStyle(Color.blue)
-                            .symbolSize(30)
-                        }
-                    }
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: .month)) {
-                            AxisGridLine().foregroundStyle(.white.opacity(0.08))
-                            AxisTick().foregroundStyle(.clear)
-                            AxisValueLabel(format: .dateTime.month(.abbreviated))
+                Group {
+                    if chartPoints.count < 2 {
+                        VStack(spacing: 8) {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                                .font(.system(size: 36))
                                 .foregroundStyle(.secondary)
+                            Text("Not enough data yet")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Text("Log at least 2 sets on different days to see your chart.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .multilineTextAlignment(.center)
                         }
-                    }
-                    .chartYAxis {
-                        AxisMarks {
-                            AxisGridLine().foregroundStyle(.white.opacity(0.08))
-                            AxisTick().foregroundStyle(.clear)
-                            AxisValueLabel().foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                    } else {
+                        Chart {
+                            ForEach(chartPoints, id: \.0) { date, weight in
+                                LineMark(
+                                    x: .value("Date", date),
+                                    y: .value("Weight", weight)
+                                )
+                                .foregroundStyle(Color.blue)
+                                .interpolationMethod(.catmullRom)
+
+                                AreaMark(
+                                    x: .value("Date", date),
+                                    y: .value("Weight", weight)
+                                )
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.blue.opacity(0.3), .clear],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                .interpolationMethod(.catmullRom)
+
+                                PointMark(
+                                    x: .value("Date", date),
+                                    y: .value("Weight", weight)
+                                )
+                                .foregroundStyle(Color.blue)
+                                .symbolSize(30)
+                            }
                         }
+                        .chartXAxis {
+                            AxisMarks(values: .stride(by: .month)) {
+                                AxisGridLine().foregroundStyle(.white.opacity(0.08))
+                                AxisTick().foregroundStyle(.clear)
+                                AxisValueLabel(format: .dateTime.month(.abbreviated))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .chartYAxis {
+                            AxisMarks {
+                                AxisGridLine().foregroundStyle(.white.opacity(0.08))
+                                AxisTick().foregroundStyle(.clear)
+                                AxisValueLabel().foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(height: 200)
                     }
-                    .frame(height: 200)
                 }
+                .id(viewModel.timeRange)
+                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
     }
@@ -386,6 +397,7 @@ struct ExerciseProgressView: View {
                     .font(.subheadline.bold())
                     .foregroundStyle(.secondary)
 
+                Group {
                 if filteredSets.isEmpty {
                     Text("No sets logged in this period.")
                         .font(.subheadline)
@@ -393,6 +405,7 @@ struct ExerciseProgressView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                 } else {
+                    VStack(spacing: 0) {
                     ForEach(filteredSets.suffix(20).reversed()) { set in
                         HStack {
                             Text(set.completedAt.formatted(.dateTime.month(.abbreviated).day()))
@@ -426,7 +439,11 @@ struct ExerciseProgressView: View {
                             Divider().background(.white.opacity(0.07))
                         }
                     }
+                    }
                 }
+                }
+                .id(viewModel.timeRange)
+                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
         }
     }
