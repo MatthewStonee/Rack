@@ -120,9 +120,9 @@ struct ProgramsView: View {
 
                 Image(systemName: "dumbbell.fill")
                     .font(.system(size: 120))
-                    .foregroundStyle(.white.opacity(0.04))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(20)
+                    .foregroundStyle(.white.opacity(0.06))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                    .padding(.trailing, -10)
                     .allowsHitTesting(false)
 
                 VStack(alignment: .leading, spacing: 14) {
