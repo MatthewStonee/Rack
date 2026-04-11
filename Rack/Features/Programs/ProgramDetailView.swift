@@ -5,6 +5,7 @@ struct ProgramDetailView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Bindable var program: Program
+    @Query private var allPrograms: [Program]
     @State private var showingAddWorkout = false
     @State private var editingWorkoutName: WorkoutTemplate?
     @State private var newWorkoutName = ""
@@ -51,6 +52,15 @@ struct ProgramDetailView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
+                    if !program.isActive {
+                        Button {
+                            for p in allPrograms { p.isActive = false }
+                            program.isActive = true
+                            try? context.save()
+                        } label: {
+                            Label("Set as Active", systemImage: "checkmark.circle")
+                        }
+                    }
                     Button {
                         draftName = program.name
                         editingTitle = true
