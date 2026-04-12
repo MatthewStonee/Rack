@@ -35,6 +35,7 @@ struct ProgramsView: View {
                         Image(systemName: "gearshape")
                             .fontWeight(.semibold)
                     }
+                    .accessibilityLabel("Settings")
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -43,6 +44,7 @@ struct ProgramsView: View {
                         Image(systemName: "plus")
                             .fontWeight(.semibold)
                     }
+                    .accessibilityLabel("Create Program")
                 }
             }
         }
@@ -67,10 +69,8 @@ struct ProgramsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 Text("Select your path to performance")
-                    .font(.footnote.bold())
-                    .foregroundStyle(.secondary)
-                    .tracking(1)
-                    .textCase(.uppercase)
+                    .font(.footnote)
+                    .foregroundStyle(.tertiary)
                     .padding(.horizontal, 20)
                     .padding(.top, 4)
 
@@ -95,6 +95,7 @@ struct ProgramsView: View {
                                     }
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityLabel(program.name)
                                 .padding(.horizontal, 16)
                             }
                         }
@@ -121,13 +122,6 @@ struct ProgramsView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                     )
 
-                Image(systemName: "dumbbell.fill")
-                    .font(.system(size: 120))
-                    .foregroundStyle(.white.opacity(0.06))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-                    .padding(.trailing, -10)
-                    .allowsHitTesting(false)
-
                 VStack(alignment: .leading, spacing: 14) {
                     Text("CURRENTLY ACTIVE")
                         .font(.caption2.bold())
@@ -144,25 +138,17 @@ struct ProgramsView: View {
                         .tracking(-0.5)
                         .lineLimit(2)
 
-                    HStack(spacing: 24) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("WORKOUTS")
-                                .font(.caption2.bold())
-                                .tracking(1)
-                                .foregroundStyle(.secondary)
-                            Text("\(program.workouts.count) / week")
-                                .font(.subheadline.bold())
-                                .foregroundStyle(.white)
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("EXERCISES")
-                                .font(.caption2.bold())
-                                .tracking(1)
-                                .foregroundStyle(.secondary)
-                            Text("\(program.workouts.reduce(0) { $0 + $1.plannedExercises.count }) total")
-                                .font(.subheadline.bold())
-                                .foregroundStyle(.white)
-                        }
+                    HStack(spacing: 12) {
+                        StatBadge(
+                            value: "\(program.workouts.count)",
+                            label: "Workouts",
+                            style: .hero
+                        )
+                        StatBadge(
+                            value: "\(program.workouts.reduce(0) { $0 + $1.plannedExercises.count })",
+                            label: "Exercises",
+                            style: .hero
+                        )
                     }
                 }
                 .padding(24)
@@ -170,37 +156,51 @@ struct ProgramsView: View {
             .frame(maxWidth: .infinity, minHeight: 200)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(program.name)
         .padding(.horizontal, 16)
     }
 
     private var emptyState: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 28) {
             Image(systemName: "list.bullet.clipboard")
-                .font(.system(size: 64))
+                .font(.system(size: 72))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.blue)
 
-            VStack(spacing: 8) {
-                Text("No Programs Yet")
+            VStack(spacing: 10) {
+                Text("Build Your First Program")
                     .font(.title2.bold())
-                Text("Create a training program to organize\nyour workouts and track progress.")
+                Text("Programs organize your workouts into a weekly structure.\nStart with one and add workout days as you go.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
 
-            Button {
-                showingCreateProgram = true
-            } label: {
-                Label("Create Program", systemImage: "plus")
-                    .fontWeight(.semibold)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(.blue, in: Capsule())
-                    .foregroundStyle(.white)
+            HStack(spacing: 20) {
+                benefitHint(icon: "calendar", text: "Structure\nyour week")
+                benefitHint(icon: "checkmark.circle", text: "Track\nevery set")
+                benefitHint(icon: "chart.line.uptrend.xyaxis", text: "See your\nprogress")
             }
+
+            PrimaryButton("Get Started", icon: "plus.circle") {
+                showingCreateProgram = true
+            }
+            .padding(.horizontal, 20)
         }
         .padding(32)
+    }
+
+    private func benefitHint(icon: String, text: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundStyle(.blue.opacity(0.6))
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

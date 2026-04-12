@@ -129,21 +129,42 @@ struct PrimaryButton: View {
 }
 
 struct StatBadge: View {
+    enum Style { case standard, hero }
+
+    let value: String
+    let label: String
+    var style: Style = .standard
+
+    var body: some View {
+        VStack(alignment: style == .hero ? .leading : .center, spacing: style == .hero ? 4 : 2) {
+            Text(value)
+                .font(style == .hero ? .title2.bold() : .title3.bold())
+                .foregroundStyle(.primary)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: style == .hero ? .leading : .center)
+        .padding(style == .hero ? 16 : 10)
+        .glassEffect(.regular, in: .rect(cornerRadius: style == .hero ? 14 : 12))
+    }
+}
+
+struct SetRepsBadge: View {
     let value: String
     let label: String
 
     var body: some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.title3.bold())
-                .foregroundStyle(.primary)
+                .font(.subheadline.bold())
             Text(label)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+        .padding(.vertical, 8)
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
     }
 }
 

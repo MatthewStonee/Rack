@@ -59,6 +59,7 @@ struct WorkoutTemplateDetailView: View {
                     Image(systemName: "ellipsis.circle")
                         .fontWeight(.semibold)
                 }
+                .accessibilityLabel("Workout Options")
             }
         }
         .alert("Rename Workout Day", isPresented: $editingTitle) {
@@ -145,7 +146,7 @@ struct PlannedExerciseRow: View {
                     if let muscle = planned.exercise?.muscleGroup {
                         Text(muscle.rawValue.uppercased())
                             .font(.caption2.bold())
-                            .tracking(1.5)
+                            .tracking(1)
                             .foregroundStyle(muscle.color.opacity(0.8))
                     }
                     Text(planned.exercise?.name ?? "Exercise")
@@ -187,27 +188,10 @@ struct PlannedExerciseRow: View {
         }
         .padding(16)
         .glassBackground()
+        .accessibilityLabel(planned.exercise?.name ?? "Exercise")
         .sheet(isPresented: $showingEdit) {
             EditPlannedExerciseView(planned: planned)
         }
-    }
-}
-
-struct SetRepsBadge: View {
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.subheadline.bold())
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
     }
 }
 

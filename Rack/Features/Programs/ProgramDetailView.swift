@@ -36,6 +36,7 @@ struct ProgramDetailView: View {
                                 WorkoutTemplateRow(workout: workout)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(workout.name)
                         }
                     }
 
@@ -89,6 +90,7 @@ struct ProgramDetailView: View {
                     Image(systemName: "ellipsis.circle")
                         .fontWeight(.semibold)
                 }
+                .accessibilityLabel("Program Options")
             }
         }
         .alert("Rename Program", isPresented: $editingTitle) {
@@ -133,25 +135,16 @@ struct ProgramDetailView: View {
                     .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
 
                 HStack(spacing: 12) {
-                    Button(role: .cancel) {
+                    GlassButton("Cancel", role: .cancel) {
                         workoutNameFocused = false
                         newWorkoutName = ""
                         showingAddWorkout = false
-                    } label: {
-                        Text("Cancel")
-                            .fontWeight(.medium)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
                     }
-                    .buttonStyle(.bordered)
 
-                    Button { submitWorkout() } label: {
-                        Text("Add")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
+                    PrimaryButton("Add") {
+                        submitWorkout()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .opacity(newWorkoutName.trimmingCharacters(in: .whitespaces).isEmpty ? 0.4 : 1.0)
                     .disabled(newWorkoutName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
@@ -175,34 +168,21 @@ struct ProgramDetailView: View {
                 .tracking(-0.5)
 
             HStack(spacing: 12) {
-                heroStatCard(
+                StatBadge(
                     value: "\(program.workouts.count)",
-                    label: program.workouts.count == 1 ? "Day" : "Days"
+                    label: program.workouts.count == 1 ? "Day" : "Days",
+                    style: .hero
                 )
-                heroStatCard(
+                StatBadge(
                     value: "\(program.workouts.reduce(0) { $0 + $1.plannedExercises.count })",
-                    label: "Exercises"
+                    label: "Exercises",
+                    style: .hero
                 )
             }
             .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 4)
-    }
-
-    private func heroStatCard(value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label.uppercased())
-                .font(.caption2.bold())
-                .tracking(1.5)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title2.bold())
-                .foregroundStyle(.white)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
     }
 
     private var emptyWorkoutsState: some View {

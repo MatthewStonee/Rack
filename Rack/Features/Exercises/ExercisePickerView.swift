@@ -38,6 +38,7 @@ struct ExercisePickerView: View {
                             } label: {
                                 ExerciseRow(exercise: exercise)
                             }
+                            .accessibilityLabel(exercise.name)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                         }
@@ -68,6 +69,7 @@ struct ExercisePickerView: View {
                         Image(systemName: "plus.circle.fill")
                             .symbolRenderingMode(.hierarchical)
                     }
+                    .accessibilityLabel("Create Exercise")
                 }
             }
             .sheet(isPresented: $showingCreate) {

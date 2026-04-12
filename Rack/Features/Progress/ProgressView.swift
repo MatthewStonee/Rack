@@ -88,6 +88,7 @@ struct ProgressTabView: View {
                         ExerciseProgressRow(exercise: exercise)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(exercise.name)
                 }
             }
             .padding(.horizontal, 16)
@@ -103,9 +104,9 @@ struct ProgressTabView: View {
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.blue)
             VStack(spacing: 8) {
-                Text("No Exercises Yet")
+                Text("No Progress Data Yet")
                     .font(.title2.bold())
-                Text("Add exercises to your programs to start tracking progress.")
+                Text("Exercises from your active program will appear here once you start logging sets.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -133,7 +134,7 @@ struct ExerciseProgressRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(exercise.muscleGroup.rawValue.uppercased())
                         .font(.caption2.bold())
-                        .tracking(1.5)
+                        .tracking(1)
                         .foregroundStyle(exercise.muscleGroup.color.opacity(0.8))
                     Text(exercise.name)
                         .font(.title3.bold())
@@ -143,9 +144,8 @@ struct ExerciseProgressRow: View {
 
                 HStack(spacing: 14) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("LAST PR")
-                            .font(.caption2.bold())
-                            .tracking(1)
+                        Text("Last PR")
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
                         if prWeight > 0 {
                             HStack(alignment: .firstTextBaseline, spacing: 2) {
@@ -168,9 +168,8 @@ struct ExerciseProgressRow: View {
                         .frame(width: 0.5, height: 28)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("SETS")
-                            .font(.caption2.bold())
-                            .tracking(1)
+                        Text("Sets")
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
                         Text("\(sortedSets.count)")
                             .font(.title3.bold())
@@ -260,6 +259,7 @@ struct ExerciseProgressView: View {
                     .shadow(color: .blue.opacity(0.25), radius: 20, x: 0, y: 8)
                     .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 2)
             }
+            .accessibilityLabel("Log Set")
             .padding(.trailing, 20)
             .padding(.bottom, 12)
         }
@@ -525,6 +525,7 @@ struct QuickLogSheet: View {
                                 .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Decrease reps")
 
                         Text("\(reps)")
                             .font(.title.bold())
@@ -540,6 +541,7 @@ struct QuickLogSheet: View {
                                 .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Increase reps")
                     }
                 }
 
@@ -670,6 +672,7 @@ struct EditLoggedSetSheet: View {
                                 .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Decrease reps")
 
                         Text("\(reps)")
                             .font(.title.bold())
@@ -685,6 +688,7 @@ struct EditLoggedSetSheet: View {
                                 .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Increase reps")
                     }
                 }
 
