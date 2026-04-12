@@ -12,6 +12,7 @@ struct ProgramDetailView: View {
     @State private var editingTitle = false
     @State private var draftName = ""
     @State private var confirmingDelete = false
+    @FocusState private var workoutNameFocused: Bool
 
     private var gradient: some View {
         LinearGradient(
@@ -22,30 +23,39 @@ struct ProgramDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                programHero
+        ZStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    programHero
 
-                if program.sortedWorkouts.isEmpty {
-                    emptyWorkoutsState
-                } else {
-                    ForEach(program.sortedWorkouts) { workout in
-                        NavigationLink(value: workout) {
-                            WorkoutTemplateRow(workout: workout)
+                    if program.sortedWorkouts.isEmpty {
+                        emptyWorkoutsState
+                    } else {
+                        ForEach(program.sortedWorkouts) { workout in
+                            NavigationLink(value: workout) {
+                                WorkoutTemplateRow(workout: workout)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
-                }
 
-                PrimaryButton("Add Workout Day", icon: "plus") {
-                    showingAddWorkout = true
+                    PrimaryButton("Add Workout Day", icon: "plus") {
+                        newWorkoutName = ""
+                        showingAddWorkout = true
+                    }
+                    .padding(.top, 4)
                 }
-                .padding(.top, 4)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 32)
+            .allowsHitTesting(!showingAddWorkout)
+
+            if showingAddWorkout {
+                addWorkoutOverlay
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: showingAddWorkout)
         .navigationTitle(program.name)
         .titleDisplayMode(.inline)
         .navigationDestination(for: WorkoutTemplate.self) { workout in
@@ -98,12 +108,57 @@ struct ProgramDetailView: View {
         } message: {
             Text("\"\(program.name)\" and all its workout days will be permanently removed.")
         }
-        .alert("Add Workout Day", isPresented: $showingAddWorkout) {
-            TextField("e.g. Push Day, Day 1", text: $newWorkoutName)
-            Button("Add") { addWorkout() }
-            Button("Cancel", role: .cancel) { newWorkoutName = "" }
-        } message: {
-            Text("Name this workout day")
+    }
+
+    private var addWorkoutOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.5)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    workoutNameFocused = false
+                    newWorkoutName = ""
+                    showingAddWorkout = false
+                }
+
+            VStack(spacing: 16) {
+                Text("Add Workout Day")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+
+                TextField("e.g. Push Day, Day 1", text: $newWorkoutName)
+                    .focused($workoutNameFocused)
+                    .submitLabel(.done)
+                    .onSubmit { submitWorkout() }
+                    .padding(14)
+                    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+
+                HStack(spacing: 12) {
+                    Button(role: .cancel) {
+                        workoutNameFocused = false
+                        newWorkoutName = ""
+                        showingAddWorkout = false
+                    } label: {
+                        Text("Cancel")
+                            .fontWeight(.medium)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button { submitWorkout() } label: {
+                        Text("Add")
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(newWorkoutName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .padding(24)
+            .glassBackground(cornerRadius: 20)
+            .padding(.horizontal, 32)
+            .onAppear { workoutNameFocused = true }
         }
     }
 
@@ -173,6 +228,12 @@ struct ProgramDetailView: View {
         context.delete(program)
         try? context.save()
         dismiss()
+    }
+
+    private func submitWorkout() {
+        workoutNameFocused = false
+        addWorkout()
+        showingAddWorkout = false
     }
 
     private func addWorkout() {

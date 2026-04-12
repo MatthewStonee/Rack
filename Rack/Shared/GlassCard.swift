@@ -42,6 +42,21 @@ struct GlassCard<Content: View>: View {
     }
 }
 
+struct GlassButtonStyle: ButtonStyle {
+    let cornerRadius: CGFloat
+
+    init(cornerRadius: CGFloat = 14) {
+        self.cornerRadius = cornerRadius
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
 struct GlassButton: View {
     let title: String
     let icon: String?
@@ -67,8 +82,8 @@ struct GlassButton: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
         }
+        .buttonStyle(GlassButtonStyle())
         .foregroundStyle(role == .destructive ? .red : .primary)
     }
 }
