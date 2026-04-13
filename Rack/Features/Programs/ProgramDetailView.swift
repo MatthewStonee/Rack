@@ -13,6 +13,10 @@ struct ProgramDetailView: View {
     @State private var draftName = ""
     @State private var confirmingDelete = false
     @FocusState private var workoutNameFocused: Bool
+    @State private var viewModel = ProgramDetailViewModel()
+    @State private var localWorkouts: [WorkoutTemplate] = []
+    @State private var isReordering = false
+    @State private var selectedWorkout: WorkoutTemplate?
 
     private var gradient: some View {
         LinearGradient(
@@ -28,12 +32,21 @@ struct ProgramDetailView: View {
                 VStack(spacing: 20) {
                     programHero
 
-                    if program.sortedWorkouts.isEmpty {
+                    if localWorkouts.isEmpty {
                         emptyWorkoutsState
                     } else {
-                        ForEach(program.sortedWorkouts) { workout in
-                            NavigationLink(value: workout) {
-                                WorkoutTemplateRow(workout: workout)
+                        ReorderableForEach(
+                            items: $localWorkouts,
+                            isDragging: $isReordering,
+                            onMove: { from, to in
+                                viewModel.reorderWorkouts(in: program, from: from, to: to, context: context)
+                            }
+                        ) { workout, isDraggingThis in
+                            Button {
+                                guard !isDraggingThis else { return }
+                                selectedWorkout = workout
+                            } label: {
+                                WorkoutTemplateRow(workout: workout, isDragging: isDraggingThis)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(workout.name)
@@ -50,6 +63,7 @@ struct ProgramDetailView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 32)
             }
+            .scrollDisabled(isReordering)
             .allowsHitTesting(!showingAddWorkout)
 
             if showingAddWorkout {
@@ -59,7 +73,7 @@ struct ProgramDetailView: View {
         .animation(.easeInOut(duration: 0.2), value: showingAddWorkout)
         .navigationTitle(program.name)
         .titleDisplayMode(.inline)
-        .navigationDestination(for: WorkoutTemplate.self) { workout in
+        .navigationDestination(item: $selectedWorkout) { workout in
             WorkoutTemplateDetailView(workout: workout)
         }
         .background { gradient }
@@ -110,6 +124,8 @@ struct ProgramDetailView: View {
         } message: {
             Text("\"\(program.name)\" and all its workout days will be permanently removed.")
         }
+        .onAppear { localWorkouts = program.sortedWorkouts }
+        .onChange(of: program.workouts.count) { localWorkouts = program.sortedWorkouts }
     }
 
     private var addWorkoutOverlay: some View {
@@ -230,6 +246,7 @@ struct ProgramDetailView: View {
 
 struct WorkoutTemplateRow: View {
     let workout: WorkoutTemplate
+    let isDragging: Bool
 
     var body: some View {
         HStack(spacing: 16) {
@@ -251,16 +268,23 @@ struct WorkoutTemplateRow: View {
 
             Spacer()
 
-            ZStack {
-                Circle()
-                    .fill(workout.plannedExercises.isEmpty ? Color.white.opacity(0.05) : Color.blue.opacity(0.15))
-                    .frame(width: 40, height: 40)
-                Image(systemName: "chevron.right")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(workout.plannedExercises.isEmpty ? Color.secondary.opacity(0.4) : Color.blue)
+            if isDragging {
+                Image(systemName: "line.3.horizontal")
+                    .font(.title3)
+                    .foregroundStyle(.secondary.opacity(0.6))
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(workout.plannedExercises.isEmpty ? Color.white.opacity(0.05) : Color.blue.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(workout.plannedExercises.isEmpty ? Color.secondary.opacity(0.4) : Color.blue)
+                }
             }
         }
         .padding(20)
         .glassBackground()
+        .contentShape(Rectangle())
     }
 }

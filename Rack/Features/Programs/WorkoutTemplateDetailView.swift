@@ -9,15 +9,24 @@ struct WorkoutTemplateDetailView: View {
     @State private var editingTitle = false
     @State private var draftName = ""
     @State private var confirmingDelete = false
+    @State private var viewModel = WorkoutTemplateDetailViewModel()
+    @State private var localExercises: [PlannedExercise] = []
+    @State private var isReordering = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
-                if workout.sortedExercises.isEmpty {
+                if localExercises.isEmpty {
                     emptyExercisesState
                 } else {
-                    ForEach(workout.sortedExercises) { planned in
-                        PlannedExerciseRow(planned: planned) {
+                    ReorderableForEach(
+                        items: $localExercises,
+                        isDragging: $isReordering,
+                        onMove: { from, to in
+                            viewModel.reorderExercises(in: workout, from: from, to: to, context: context)
+                        }
+                    ) { planned, isDragging in
+                        PlannedExerciseRow(planned: planned, isDragging: isDragging) {
                             deletePlannedExercise(planned)
                         }
                     }
@@ -32,6 +41,7 @@ struct WorkoutTemplateDetailView: View {
             .padding(.top, 8)
             .padding(.bottom, 32)
         }
+        .scrollDisabled(isReordering)
         .navigationTitle(workout.name)
         .titleDisplayMode(.large)
         .background {
@@ -84,6 +94,8 @@ struct WorkoutTemplateDetailView: View {
                 addExercise(exercise)
             }
         }
+        .onAppear { localExercises = workout.sortedExercises }
+        .onChange(of: workout.plannedExercises.count) { localExercises = workout.sortedExercises }
     }
 
     private var emptyExercisesState: some View {
@@ -116,6 +128,7 @@ struct WorkoutTemplateDetailView: View {
         workout.plannedExercises.append(planned)
         context.insert(planned)
         try? context.save()
+        localExercises = workout.sortedExercises
     }
 
     private func deletePlannedExercise(_ planned: PlannedExercise) {
@@ -136,6 +149,7 @@ struct WorkoutTemplateDetailView: View {
 
 struct PlannedExerciseRow: View {
     @Bindable var planned: PlannedExercise
+    let isDragging: Bool
     let onDelete: () -> Void
     @State private var showingEdit = false
 
@@ -160,21 +174,27 @@ struct PlannedExerciseRow: View {
                     }
                 }
                 Spacer()
-                Menu {
-                    Button {
-                        showingEdit = true
+                if !isDragging {
+                    Menu {
+                        Button {
+                            showingEdit = true
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            onDelete()
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
                     } label: {
-                        Label("Edit", systemImage: "pencil")
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
                     }
-                    Button(role: .destructive) {
-                        onDelete()
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
+                } else {
+                    Image(systemName: "line.3.horizontal")
                         .font(.title3)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.secondary.opacity(0.6))
                 }
             }
 
