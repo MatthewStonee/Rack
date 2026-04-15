@@ -5,8 +5,12 @@ struct CreateProgramView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
 
+    var existingProgram: Program?
+
     @State private var name = ""
     @State private var description = ""
+
+    private var isEditing: Bool { existingProgram != nil }
 
     var body: some View {
         NavigationStack {
@@ -34,8 +38,12 @@ struct CreateProgramView: View {
 
                 Spacer()
 
-                PrimaryButton("Create Program", icon: "plus") {
-                    createProgram()
+                PrimaryButton(isEditing ? "Save Changes" : "Create Program", icon: isEditing ? "checkmark" : "plus") {
+                    if isEditing {
+                        saveChanges()
+                    } else {
+                        createProgram()
+                    }
                 }
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
@@ -48,12 +56,18 @@ struct CreateProgramView: View {
                 )
                 .ignoresSafeArea()
             }
-            .navigationTitle("New Program")
+            .navigationTitle(isEditing ? "Edit Program" : "New Program")
             .titleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(.secondary)
+                }
+            }
+            .onAppear {
+                if let existingProgram {
+                    name = existingProgram.name
+                    description = existingProgram.programDescription
                 }
             }
         }
@@ -64,6 +78,15 @@ struct CreateProgramView: View {
         guard !trimmed.isEmpty else { return }
         let program = Program(name: trimmed, description: description.trimmingCharacters(in: .whitespaces))
         context.insert(program)
+        try? context.save()
+        dismiss()
+    }
+
+    private func saveChanges() {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let existingProgram else { return }
+        existingProgram.name = trimmed
+        existingProgram.programDescription = description.trimmingCharacters(in: .whitespaces)
         try? context.save()
         dismiss()
     }

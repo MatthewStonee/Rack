@@ -10,8 +10,7 @@ struct ProgramDetailView: View {
     @State private var showingAddWorkout = false
     @State private var editingWorkoutName: WorkoutTemplate?
     @State private var newWorkoutName = ""
-    @State private var editingTitle = false
-    @State private var draftName = ""
+    @State private var showingEditProgram = false
     @State private var pendingDeleteWorkout: WorkoutTemplate?
     @State private var workoutDeleteTask: Task<Void, Never>?
     @FocusState private var workoutNameFocused: Bool
@@ -107,10 +106,9 @@ struct ProgramDetailView: View {
                         }
                     }
                     Button {
-                        draftName = program.name
-                        editingTitle = true
+                        showingEditProgram = true
                     } label: {
-                        Label("Rename", systemImage: "pencil")
+                        Label("Edit Program", systemImage: "pencil")
                     }
                     Button(role: .destructive) {
                         deleteProgram()
@@ -124,16 +122,8 @@ struct ProgramDetailView: View {
                 .accessibilityLabel("Program Options")
             }
         }
-        .alert("Rename Program", isPresented: $editingTitle) {
-            TextField("Program name", text: $draftName)
-            Button("Save") {
-                let trimmed = draftName.trimmingCharacters(in: .whitespaces)
-                if !trimmed.isEmpty {
-                    program.name = trimmed
-                    try? context.save()
-                }
-            }
-            Button("Cancel", role: .cancel) {}
+        .sheet(isPresented: $showingEditProgram) {
+            CreateProgramView(existingProgram: program)
         }
         .onAppear { localWorkouts = program.sortedWorkouts.filter { $0.id != pendingDeleteWorkout?.id } }
         .onChange(of: program.workouts.count) { localWorkouts = program.sortedWorkouts.filter { $0.id != pendingDeleteWorkout?.id } }
@@ -206,6 +196,12 @@ struct ProgramDetailView: View {
                 .font(.system(size: 34, weight: .black))
                 .foregroundStyle(.white)
                 .tracking(-0.5)
+
+            if !program.programDescription.isEmpty {
+                Text(program.programDescription)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
 
             HStack(spacing: 12) {
                 StatBadge(
