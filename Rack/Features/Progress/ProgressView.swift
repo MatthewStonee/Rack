@@ -7,6 +7,7 @@ import Charts
 struct ProgressTabView: View {
     @Query(sort: \Exercise.name) private var exercises: [Exercise]
     @Query private var plannedExercises: [PlannedExercise]
+    @State private var viewModel = ProgressViewModel()
 
     private var programExercises: [Exercise] {
         let usedIDs = Set(plannedExercises.compactMap { $0.exercise?.id })
@@ -40,6 +41,7 @@ struct ProgressTabView: View {
             .navigationDestination(for: Exercise.self) { exercise in
                 ExerciseProgressView(exercise: exercise)
             }
+            .onAppear { viewModel.backfillPersonalRecords(exercises: exercises) }
         }
     }
 
@@ -264,14 +266,17 @@ struct ExerciseProgressView: View {
             .padding(.bottom, 12)
         }
         .sheet(isPresented: $showingQuickLog) {
-            QuickLogSheet(exercise: exercise)
+            QuickLogSheet(exercise: exercise, viewModel: viewModel)
         }
         .sheet(item: $setToEdit) { set in
-            EditLoggedSetSheet(set: set)
+            EditLoggedSetSheet(set: set, viewModel: viewModel)
         }
     }
 
     private func deleteSet(_ set: LoggedSet) {
+        if set.isPersonalRecord, let exercise = set.exercise {
+            viewModel.promotePR(exercise: exercise, reps: set.reps, excluding: set)
+        }
         context.delete(set)
         try? context.save()
     }
@@ -470,6 +475,7 @@ struct QuickLogSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let exercise: Exercise
+    let viewModel: ProgressViewModel
 
     @State private var weightText: String = ""
     @State private var reps: Int = 5
@@ -603,6 +609,9 @@ struct QuickLogSheet: View {
         let weight = Double(weightText) ?? 0
         let set = LoggedSet(exercise: exercise, reps: reps, weight: weight)
         set.completedAt = date
+        let isPR = viewModel.isNewPersonalRecord(exercise: exercise, weight: weight, reps: reps)
+        if isPR { viewModel.clearPR(exercise: exercise, reps: reps) }
+        set.isPersonalRecord = isPR
         context.insert(set)
         try? context.save()
         dismiss()
@@ -615,10 +624,13 @@ struct EditLoggedSetSheet: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Bindable var set: LoggedSet
+    let viewModel: ProgressViewModel
 
     @State private var weightText: String = ""
     @State private var reps: Int = 1
     @State private var date: Date = .now
+    @State private var originalReps: Int = 0
+    @State private var originalWeight: Double = 0
 
     var body: some View {
         NavigationStack {
@@ -736,13 +748,30 @@ struct EditLoggedSetSheet: View {
             weightText = set.weight > 0 ? String(format: "%.0f", set.weight) : ""
             reps = set.reps
             date = set.completedAt
+            originalReps = set.reps
+            originalWeight = set.weight
         }
     }
 
     private func saveChanges() {
-        set.weight = Double(weightText) ?? 0
+        let newWeight = Double(weightText) ?? 0
+        guard let exercise = set.exercise else { return }
+
+        // If reps changed and this was a PR, promote the next-best at the old rep count
+        if originalReps != reps && set.isPersonalRecord {
+            set.isPersonalRecord = false
+            viewModel.promotePR(exercise: exercise, reps: originalReps, excluding: set)
+        }
+
+        set.weight = newWeight
         set.reps = reps
         set.completedAt = date
+
+        // Recalculate PR at the (possibly new) rep count
+        let isPR = viewModel.isNewPersonalRecord(exercise: exercise, weight: newWeight, reps: reps, excluding: set)
+        if isPR { viewModel.clearPR(exercise: exercise, reps: reps, excluding: set) }
+        set.isPersonalRecord = isPR
+
         try? context.save()
         dismiss()
     }

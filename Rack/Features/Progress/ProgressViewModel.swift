@@ -47,4 +47,48 @@ final class ProgressViewModel {
     func totalVolume(for sets: [LoggedSet]) -> Double {
         sets.reduce(0) { $0 + $1.volume }
     }
+
+    // MARK: - PR Detection
+
+    /// Checks if a weight beats the current PR for an exercise at a given rep count.
+    func isNewPersonalRecord(exercise: Exercise, weight: Double, reps: Int, excluding: LoggedSet? = nil) -> Bool {
+        let previousMax = exercise.loggedSets
+            .filter { $0.reps == reps && $0.id != excluding?.id }
+            .map(\.weight)
+            .max() ?? 0
+        return weight > 0 && weight > previousMax
+    }
+
+    /// Clears the PR flag on all sets for an exercise at a given rep count.
+    func clearPR(exercise: Exercise, reps: Int, excluding: LoggedSet? = nil) {
+        for set in exercise.loggedSets where set.reps == reps && set.isPersonalRecord && set.id != excluding?.id {
+            set.isPersonalRecord = false
+        }
+    }
+
+    /// Promotes the heaviest set at a given rep count to PR after a deletion.
+    func promotePR(exercise: Exercise, reps: Int, excluding: LoggedSet? = nil) {
+        if let newPR = exercise.loggedSets
+            .filter({ $0.reps == reps && $0.id != excluding?.id })
+            .max(by: { $0.weight < $1.weight }), newPR.weight > 0 {
+            newPR.isPersonalRecord = true
+        }
+    }
+
+    /// One-time backfill: marks the correct PR set per exercise per rep count.
+    func backfillPersonalRecords(exercises: [Exercise]) {
+        guard !UserDefaults.standard.bool(forKey: "prBackfillComplete") else { return }
+        for exercise in exercises {
+            // Clear all existing PR flags
+            for set in exercise.loggedSets { set.isPersonalRecord = false }
+            // Group by rep count, mark max weight in each group
+            let grouped = Dictionary(grouping: exercise.loggedSets) { $0.reps }
+            for (_, sets) in grouped {
+                if let best = sets.max(by: { $0.weight < $1.weight }), best.weight > 0 {
+                    best.isPersonalRecord = true
+                }
+            }
+        }
+        UserDefaults.standard.set(true, forKey: "prBackfillComplete")
+    }
 }
