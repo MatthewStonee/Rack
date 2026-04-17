@@ -14,16 +14,15 @@ struct RackApp: App {
             WorkoutSession.self,
             LoggedSet.self
         ])
-        do {
-            let config = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
-            container = try ModelContainer(for: schema, configurations: config)
-        } catch {
-            // CloudKit unavailable (simulator not signed into iCloud, container not yet initialized, etc.)
-            // Fall back to local-only storage so the app stays usable.
-            guard let local = try? ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema)) else {
-                fatalError("SwiftData ModelContainer failed: \(error.localizedDescription)")
-            }
+        if let ck = try? ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)) {
+            container = ck
+        } else if let local = try? ModelContainer(for: schema) {
             container = local
+        } else {
+            // Store is corrupted (e.g. failed CloudKit migration). Wipe and start fresh.
+            let storeURL = URL.applicationSupportDirectory.appending(path: "default.store")
+            try? FileManager.default.removeItem(at: storeURL)
+            container = try! ModelContainer(for: schema)
         }
         ExerciseLibrary.seedIfNeeded(context: container.mainContext)
     }
