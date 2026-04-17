@@ -4,11 +4,11 @@ import SwiftUI
 
 @Model
 final class Exercise {
-    var id: UUID
-    var name: String
-    var muscleGroup: MuscleGroup
-    var equipment: Equipment
-    var createdAt: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var muscleGroup: MuscleGroup = MuscleGroup.chest
+    var equipment: Equipment = Equipment.barbell
+    var createdAt: Date = Date()
 
     @Relationship(deleteRule: .nullify)
     var plannedExercises: [PlannedExercise] = []

@@ -14,7 +14,7 @@ struct RackApp: App {
             WorkoutSession.self,
             LoggedSet.self
         ])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let config = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
         do {
             container = try ModelContainer(for: schema, configurations: config)
         } catch {

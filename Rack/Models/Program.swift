@@ -3,11 +3,11 @@ import Foundation
 
 @Model
 final class Program {
-    var id: UUID
-    var name: String
-    var programDescription: String
-    var createdAt: Date
-    var isActive: Bool
+    var id: UUID = UUID()
+    var name: String = ""
+    var programDescription: String = ""
+    var createdAt: Date = Date()
+    var isActive: Bool = false
 
     @Relationship(deleteRule: .cascade, inverse: \WorkoutTemplate.program)
     var workouts: [WorkoutTemplate] = []
@@ -27,10 +27,10 @@ final class Program {
 
 @Model
 final class WorkoutTemplate {
-    var id: UUID
-    var name: String
-    var orderIndex: Int
-    var createdAt: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var orderIndex: Int = 0
+    var createdAt: Date = Date()
 
     var program: Program?
 
@@ -54,11 +54,11 @@ final class WorkoutTemplate {
 
 @Model
 final class PlannedExercise {
-    var id: UUID
-    var sets: Int
-    var reps: Int
+    var id: UUID = UUID()
+    var sets: Int = 3
+    var reps: Int = 8
     var targetWeight: Double?
-    var orderIndex: Int
+    var orderIndex: Int = 0
 
     var exercise: Exercise?
     var workoutTemplate: WorkoutTemplate?

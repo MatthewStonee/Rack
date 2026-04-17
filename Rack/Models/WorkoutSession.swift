@@ -3,10 +3,10 @@ import Foundation
 
 @Model
 final class WorkoutSession {
-    var id: UUID
-    var startedAt: Date
+    var id: UUID = UUID()
+    var startedAt: Date = Date()
     var completedAt: Date?
-    var notes: String
+    var notes: String = ""
 
     var workoutTemplate: WorkoutTemplate?
 
@@ -50,11 +50,11 @@ final class WorkoutSession {
 
 @Model
 final class LoggedSet {
-    var id: UUID
-    var reps: Int
-    var weight: Double
-    var completedAt: Date
-    var isPersonalRecord: Bool
+    var id: UUID = UUID()
+    var reps: Int = 0
+    var weight: Double = 0
+    var completedAt: Date = Date()
+    var isPersonalRecord: Bool = false
 
     var exercise: Exercise?
     var session: WorkoutSession?
