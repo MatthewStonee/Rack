@@ -1,5 +1,11 @@
 import Foundation
 
+enum PlannedRepTargetDefaults {
+    static let exactReps = 8
+    static let rangeLowerBound = 8
+    static let rangeUpperBound = 12
+}
+
 enum WeightUnit: String {
     case lbs, kg
 
@@ -37,4 +43,18 @@ extension Double {
         f.maximumFractionDigits = 2
         return f
     }()
+}
+
+extension PlannedExercise {
+    var formattedRepTarget: String {
+        switch repTargetType {
+        case .exact:
+            return "\(exactRepTarget) reps"
+        case .range:
+            let repRange = repRange
+            return "\(repRange.lowerBound)-\(repRange.upperBound) reps"
+        case .failure:
+            return "Failure"
+        }
+    }
 }

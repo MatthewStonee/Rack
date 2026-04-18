@@ -38,6 +38,7 @@ struct RackApp: App {
                 Self.logger.warning("Recreated local-only SwiftData store after removing the existing store. iCloud sync is disabled for this launch.")
             }
         }
+        backfillPlannedExerciseRepTargets(context: container.mainContext)
         ExerciseLibrary.seedIfNeeded(context: container.mainContext)
     }
 
@@ -46,6 +47,41 @@ struct RackApp: App {
             ContentView()
                 .modelContainer(container)
                 .preferredColorScheme(.dark)
+        }
+    }
+
+    private func backfillPlannedExerciseRepTargets(context: ModelContext) {
+        let descriptor = FetchDescriptor<PlannedExercise>()
+
+        guard let plannedExercises = try? context.fetch(descriptor) else {
+            Self.logger.error("Failed to fetch planned exercises for rep target backfill.")
+            return
+        }
+
+        var didUpdateAny = false
+        for plannedExercise in plannedExercises {
+            let oldType = plannedExercise.repTargetTypeRaw
+            let oldExactReps = plannedExercise.reps
+            let oldLowerBound = plannedExercise.repRangeLowerBound
+            let oldUpperBound = plannedExercise.repRangeUpperBound
+
+            plannedExercise.normalizeRepTarget()
+
+            if plannedExercise.repTargetTypeRaw != oldType ||
+                plannedExercise.reps != oldExactReps ||
+                plannedExercise.repRangeLowerBound != oldLowerBound ||
+                plannedExercise.repRangeUpperBound != oldUpperBound {
+                didUpdateAny = true
+            }
+        }
+
+        guard didUpdateAny else { return }
+
+        do {
+            try context.save()
+            Self.logger.notice("Backfilled planned exercise rep targets.")
+        } catch {
+            Self.logger.error("Failed to save planned exercise rep target backfill: \(String(describing: error), privacy: .public)")
         }
     }
 }

@@ -6,6 +6,7 @@ struct WorkoutTemplateDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var workout: WorkoutTemplate
     var onDeleteWorkout: (() -> Void)?
+    @AppStorage("plannedRepTargetDefault") private var plannedRepTargetDefault: PlannedRepTargetType = .exact
     @State private var showingExercisePicker = false
     @State private var showingRenameSheet = false
     @State private var viewModel = WorkoutTemplateDetailViewModel()
@@ -120,7 +121,10 @@ struct WorkoutTemplateDetailView: View {
         let planned = PlannedExercise(
             exercise: exercise,
             sets: 3,
-            reps: 8,
+            reps: PlannedRepTargetDefaults.exactReps,
+            repTargetType: plannedRepTargetDefault,
+            repRangeLowerBound: PlannedRepTargetDefaults.rangeLowerBound,
+            repRangeUpperBound: PlannedRepTargetDefaults.rangeUpperBound,
             orderIndex: workout.plannedExercisesList.count
         )
         planned.workoutTemplate = workout
@@ -213,7 +217,7 @@ struct PlannedExerciseRow: View {
 
             HStack(spacing: 8) {
                 SetRepsBadge(value: "\(planned.sets)", label: "sets")
-                SetRepsBadge(value: "\(planned.reps)", label: "reps")
+                SetRepsBadge(value: planned.formattedRepTarget, label: "target")
                 if let weight = planned.targetWeight {
                     SetRepsBadge(value: weight.formattedWeight(unit: weightUnit), label: weightUnit.symbol)
                 }
@@ -296,7 +300,10 @@ struct EditPlannedExerciseView: View {
     @Bindable var planned: PlannedExercise
 
     @State private var sets: Int = 3
-    @State private var reps: Int = 8
+    @State private var repTargetType: PlannedRepTargetType = .exact
+    @State private var exactReps: Int = PlannedRepTargetDefaults.exactReps
+    @State private var rangeLowerBound: Int = PlannedRepTargetDefaults.rangeLowerBound
+    @State private var rangeUpperBound: Int = PlannedRepTargetDefaults.rangeUpperBound
     @State private var weight: String = ""
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .lbs
 
@@ -318,7 +325,14 @@ struct EditPlannedExerciseView: View {
                         VStack(spacing: 16) {
                             Stepper("Sets: \(sets)", value: $sets, in: 1...20)
                             Divider().background(.white.opacity(0.1))
-                            Stepper("Reps: \(reps)", value: $reps, in: 1...100)
+                            Picker("Rep Target", selection: $repTargetType) {
+                                ForEach(PlannedRepTargetType.allCases, id: \.self) { type in
+                                    Text(type.title).tag(type)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+
+                            repTargetEditor
                         }
                     }
 
@@ -347,17 +361,75 @@ struct EditPlannedExerciseView: View {
             }
             .onAppear {
                 sets = planned.sets
-                reps = planned.reps
+                repTargetType = planned.repTargetType
+                exactReps = planned.exactRepTarget
+                let repRange = planned.repRange
+                rangeLowerBound = repRange.lowerBound
+                rangeUpperBound = repRange.upperBound
                 if let w = planned.targetWeight {
                     weight = w.formattedWeight(unit: weightUnit)
                 }
             }
+            .onChange(of: repTargetType) { _, newValue in
+                normalizeDraftRepTarget(for: newValue)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var repTargetEditor: some View {
+        switch repTargetType {
+        case .exact:
+            Stepper("Reps: \(exactReps)", value: $exactReps, in: 1...100)
+        case .range:
+            VStack(spacing: 16) {
+                Stepper("Lower Reps: \(rangeLowerBound)", value: $rangeLowerBound, in: 1...rangeUpperBound)
+                Divider().background(.white.opacity(0.1))
+                Stepper("Upper Reps: \(rangeUpperBound)", value: $rangeUpperBound, in: rangeLowerBound...100)
+            }
+        case .failure:
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Target")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.secondary)
+                Text("This exercise will be programmed to failure.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func normalizeDraftRepTarget(for type: PlannedRepTargetType) {
+        exactReps = max(1, exactReps)
+        rangeLowerBound = max(1, rangeLowerBound)
+        rangeUpperBound = max(rangeLowerBound, rangeUpperBound)
+
+        switch type {
+        case .exact:
+            if exactReps < 1 {
+                exactReps = PlannedRepTargetDefaults.exactReps
+            }
+        case .range:
+            if rangeLowerBound < 1 {
+                rangeLowerBound = PlannedRepTargetDefaults.rangeLowerBound
+            }
+            if rangeUpperBound < rangeLowerBound {
+                rangeUpperBound = max(rangeLowerBound, PlannedRepTargetDefaults.rangeUpperBound)
+            }
+        case .failure:
+            break
         }
     }
 
     private func save() {
         planned.sets = sets
-        planned.reps = reps
+        planned.configureRepTarget(
+            repTargetType,
+            exactReps: exactReps,
+            rangeLowerBound: rangeLowerBound,
+            rangeUpperBound: rangeUpperBound
+        )
         planned.targetWeight = Double(weight).map { weightUnit.store($0) }
         try? context.save()
         dismiss()
