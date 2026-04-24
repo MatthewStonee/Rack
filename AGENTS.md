@@ -18,7 +18,6 @@ SwiftData `@Model` classes in `Rack/Models/`.
 
 - `Exercise` — name, `MuscleGroup` enum (with `.color` + `.sfSymbol`), `Equipment` enum
 - `Program` → `WorkoutTemplate` → `PlannedExercise` (cascade delete; each level has `orderIndex` for drag-to-reorder)
-- `WorkoutSession` + `LoggedSet` — session has cascade delete over its logged sets
 - `ExerciseLibrary` — seeds 60 exercises on first launch via a `"exerciseLibrarySeeded"` UserDefaults flag. To re-seed during dev: flip the flag or reset the app. Don't hand-add exercises thinking the library is empty.
 
 ### Invariants (do not break)
