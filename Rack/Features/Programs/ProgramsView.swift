@@ -151,6 +151,23 @@ struct ProgramsView: View {
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                 )
+                .overlay(alignment: .topTrailing) {
+                    Image(systemName: "dumbbell.fill")
+                        .font(.system(size: 32, weight: .semibold))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.white.opacity(0.24), .blue.opacity(0.16)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .shadow(color: .blue.opacity(0.18), radius: 10, x: 0, y: 0)
+                        .shadow(color: .white.opacity(0.08), radius: 2, x: 0, y: 0)
+                        .padding(.top, 22)
+                        .padding(.trailing, 22)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
 
             VStack(alignment: .leading, spacing: 14) {
                 Text("CURRENTLY ACTIVE")

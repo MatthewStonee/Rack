@@ -162,10 +162,25 @@ struct FilterChip: View {
 struct CreateExerciseView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Exercise.name) private var exercises: [Exercise]
 
     @State private var name = ""
     @State private var muscleGroup: MuscleGroup = .chest
     @State private var equipment: Equipment = .barbell
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isDuplicateName: Bool {
+        let normalized = ExerciseLibrary.normalizedName(trimmedName)
+        guard !normalized.isEmpty else { return false }
+        return exercises.contains { ExerciseLibrary.normalizedName($0.name) == normalized }
+    }
+
+    private var canCreateExercise: Bool {
+        !trimmedName.isEmpty && !isDuplicateName
+    }
 
     var body: some View {
         NavigationStack {
@@ -179,6 +194,11 @@ struct CreateExerciseView: View {
                 Form {
                     Section("Exercise Name") {
                         TextField("e.g. Bench Press", text: $name)
+                        if isDuplicateName {
+                            Text("An exercise with this name already exists.")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
                     }
                     .listRowBackground(Color.white.opacity(0.06))
 
@@ -213,16 +233,15 @@ struct CreateExerciseView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Add") { createExercise() }
                         .fontWeight(.bold)
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .disabled(!canCreateExercise)
                 }
             }
         }
     }
 
     private func createExercise() {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        let exercise = Exercise(name: trimmed, muscleGroup: muscleGroup, equipment: equipment)
+        guard canCreateExercise else { return }
+        let exercise = Exercise(name: trimmedName, muscleGroup: muscleGroup, equipment: equipment)
         context.insert(exercise)
         try? context.save()
         dismiss()

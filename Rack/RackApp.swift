@@ -39,7 +39,7 @@ struct RackApp: App {
             }
         }
         backfillPlannedExerciseRepTargets(context: container.mainContext)
-        ExerciseLibrary.seedIfNeeded(context: container.mainContext)
+        ExerciseLibrary.reconcile(context: container.mainContext)
     }
 
     var body: some Scene {
