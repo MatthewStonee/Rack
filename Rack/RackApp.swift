@@ -40,6 +40,7 @@ struct RackApp: App {
         }
         backfillPlannedExerciseRepTargets(context: container.mainContext)
         ExerciseLibrary.reconcile(context: container.mainContext)
+        schedulePersonalRecordBackfill()
     }
 
     var body: some Scene {
@@ -82,6 +83,15 @@ struct RackApp: App {
             Self.logger.notice("Backfilled planned exercise rep targets.")
         } catch {
             Self.logger.error("Failed to save planned exercise rep target backfill: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    private func schedulePersonalRecordBackfill() {
+        guard !UserDefaults.standard.bool(forKey: "prBackfillComplete") else { return }
+
+        let backfillActor = PersonalRecordBackfillActor(modelContainer: container)
+        Task(priority: .utility) {
+            await backfillActor.backfillIfNeeded()
         }
     }
 }

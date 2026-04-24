@@ -10,17 +10,12 @@ struct WorkoutTemplateDetailView: View {
     @State private var showingExercisePicker = false
     @State private var showingRenameSheet = false
     @State private var viewModel = WorkoutTemplateDetailViewModel()
-    @State private var localExercises: [PlannedExercise] = []
     @State private var isReorderMode = false
     @State private var pendingDeleteExercise: PlannedExercise?
     @State private var exerciseDeleteTask: Task<Void, Never>?
 
     private var visibleExercises: [PlannedExercise] {
         workout.sortedExercises.filter { $0.id != pendingDeleteExercise?.id }
-    }
-
-    private var visibleExerciseIDs: [UUID] {
-        visibleExercises.map(\.id)
     }
 
     private var canToggleReorderMode: Bool {
@@ -30,11 +25,11 @@ struct WorkoutTemplateDetailView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
-                if localExercises.isEmpty {
+                if visibleExercises.isEmpty {
                     emptyExercisesState
                 } else {
                     ReorderableForEach(
-                        items: $localExercises,
+                        items: visibleExercises,
                         isEnabled: isReorderMode,
                         onCommitOrder: { orderedIDs in
                             viewModel.reorderExercises(in: workout, orderedIDs: orderedIDs, context: context)
@@ -116,11 +111,6 @@ struct WorkoutTemplateDetailView: View {
                 addExercise(exercise)
             }
         }
-        .onAppear { syncLocalExercises() }
-        .onChange(of: visibleExerciseIDs) { _, _ in
-            guard !isReorderMode else { return }
-            syncLocalExercises()
-        }
         .undoToast(
             isPresented: Binding(
                 get: { pendingDeleteExercise != nil },
@@ -131,7 +121,6 @@ struct WorkoutTemplateDetailView: View {
                 exerciseDeleteTask?.cancel()
                 exerciseDeleteTask = nil
                 pendingDeleteExercise = nil
-                syncLocalExercises()
             }
         )
     }
@@ -171,13 +160,11 @@ struct WorkoutTemplateDetailView: View {
         workout.plannedExercises = plannedExercises
         context.insert(planned)
         try? context.save()
-        localExercises = workout.sortedExercises
     }
 
     private func deletePlannedExercise(_ planned: PlannedExercise) {
         exitReorderMode()
         exerciseDeleteTask?.cancel()
-        localExercises.removeAll { $0.id == planned.id }
         pendingDeleteExercise = planned
         exerciseDeleteTask = Task {
             try? await Task.sleep(for: .seconds(4))
@@ -205,17 +192,11 @@ struct WorkoutTemplateDetailView: View {
 
     private func enterReorderMode() {
         guard canToggleReorderMode else { return }
-        syncLocalExercises()
         isReorderMode = true
     }
 
     private func exitReorderMode() {
         isReorderMode = false
-        syncLocalExercises()
-    }
-
-    private func syncLocalExercises() {
-        localExercises = visibleExercises
     }
 }
 

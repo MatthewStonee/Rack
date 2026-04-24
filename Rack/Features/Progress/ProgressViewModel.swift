@@ -1,10 +1,31 @@
 import SwiftUI
 import SwiftData
 
+struct ExerciseProgressSummary {
+    var prWeight: Double = 0
+    var setCount: Int = 0
+}
+
+struct ProgressOverview {
+    var programExercises: [Exercise] = []
+    var summariesByExerciseID: [UUID: ExerciseProgressSummary] = [:]
+    var weeklyVolume: Double = 0
+}
+
+struct ExerciseProgressMetrics {
+    var chartPoints: [(Date, Double)] = []
+    var personalRecord: LoggedSet?
+    var totalVolume: Double = 0
+    var recentSets: [LoggedSet] = []
+    var hasFilteredSets = false
+}
+
 @Observable
 final class ProgressViewModel {
     var selectedExercise: Exercise?
     var timeRange: TimeRange = .threeMonths
+    var overview = ProgressOverview()
+    var exerciseMetrics = ExerciseProgressMetrics()
 
     enum TimeRange: String, CaseIterable {
         case oneMonth = "1M"
@@ -48,6 +69,61 @@ final class ProgressViewModel {
         sets.reduce(0) { $0 + $1.volume }
     }
 
+    func refreshOverview(
+        exercises: [Exercise],
+        plannedExercises: [PlannedExercise],
+        loggedSets: [LoggedSet],
+        now: Date = Date()
+    ) {
+        let usedIDs = Set(plannedExercises.compactMap { $0.exercise?.id })
+        let programExercises = exercises.filter { usedIDs.contains($0.id) }
+        var setsByExerciseID: [UUID: [LoggedSet]] = [:]
+        for set in loggedSets {
+            guard let exerciseID = set.exercise?.id else { continue }
+            setsByExerciseID[exerciseID, default: []].append(set)
+        }
+        let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now
+
+        var summaries: [UUID: ExerciseProgressSummary] = [:]
+        var weeklyVolume: Double = 0
+
+        for exercise in programExercises {
+            let exerciseSets = setsByExerciseID[exercise.id] ?? []
+            summaries[exercise.id] = ExerciseProgressSummary(
+                prWeight: exerciseSets.map(\.weight).max() ?? 0,
+                setCount: exerciseSets.count
+            )
+
+            for set in exerciseSets where set.completedAt >= oneWeekAgo {
+                weeklyVolume += set.volume
+            }
+        }
+
+        overview = ProgressOverview(
+            programExercises: programExercises,
+            summariesByExerciseID: summaries,
+            weeklyVolume: weeklyVolume
+        )
+    }
+
+    func refreshExerciseMetrics(with sets: [LoggedSet]) {
+        let allSets = sets.sorted { $0.completedAt < $1.completedAt }
+        let filteredSets = filteredSets(allSets, for: timeRange)
+
+        exerciseMetrics = ExerciseProgressMetrics(
+            chartPoints: maxWeightPoints(for: filteredSets),
+            personalRecord: personalRecord(for: allSets),
+            totalVolume: totalVolume(for: filteredSets),
+            recentSets: Array(filteredSets.suffix(20).reversed()),
+            hasFilteredSets: !filteredSets.isEmpty
+        )
+    }
+
+    func updateTimeRange(_ range: TimeRange, sets: [LoggedSet]) {
+        timeRange = range
+        refreshExerciseMetrics(with: sets)
+    }
+
     // MARK: - PR Detection
 
     /// Checks if a weight beats the current PR for an exercise at a given rep count.
@@ -75,13 +151,20 @@ final class ProgressViewModel {
         }
     }
 
+}
+
+@ModelActor
+actor PersonalRecordBackfillActor {
     /// One-time backfill: marks the correct PR set per exercise per rep count.
-    func backfillPersonalRecords(exercises: [Exercise]) {
+    func backfillIfNeeded() {
         guard !UserDefaults.standard.bool(forKey: "prBackfillComplete") else { return }
+        let descriptor = FetchDescriptor<Exercise>()
+
+        guard let exercises = try? modelContext.fetch(descriptor) else { return }
+
         for exercise in exercises {
-            // Clear all existing PR flags
             for set in exercise.loggedSetsList { set.isPersonalRecord = false }
-            // Group by rep count, mark max weight in each group
+
             let grouped = Dictionary(grouping: exercise.loggedSetsList) { $0.reps }
             for (_, sets) in grouped {
                 if let best = sets.max(by: { $0.weight < $1.weight }), best.weight > 0 {
@@ -89,6 +172,8 @@ final class ProgressViewModel {
                 }
             }
         }
+
+        guard (try? modelContext.save()) != nil else { return }
         UserDefaults.standard.set(true, forKey: "prBackfillComplete")
     }
 }
