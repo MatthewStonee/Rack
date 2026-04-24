@@ -4,15 +4,148 @@ import Foundation
 enum ExerciseLibrary {
     private static let seededKey = "exerciseLibrarySeeded"
 
-    static func seedIfNeeded(context: ModelContext) {
-        guard !UserDefaults.standard.bool(forKey: seededKey) else { return }
+    static func reconcile(context: ModelContext) {
+        do {
+            var exercises = try context.fetch(FetchDescriptor<Exercise>())
+            let plannedExercises = try context.fetch(FetchDescriptor<PlannedExercise>())
+            let loggedSets = try context.fetch(FetchDescriptor<LoggedSet>())
 
-        for entry in seed {
-            let exercise = Exercise(name: entry.name, muscleGroup: entry.muscleGroup, equipment: entry.equipment)
-            context.insert(exercise)
+            var didChange = false
+
+            for entry in seed {
+                let identity = ExerciseIdentity(name: entry.name, muscleGroup: entry.muscleGroup, equipment: entry.equipment)
+                let matches = exercises.filter { ExerciseIdentity(exercise: $0) == identity }
+
+                guard !matches.isEmpty else {
+                    let exercise = Exercise(name: entry.name, muscleGroup: entry.muscleGroup, equipment: entry.equipment)
+                    context.insert(exercise)
+                    exercises.append(exercise)
+                    didChange = true
+                    continue
+                }
+
+                let canonical = canonicalExercise(
+                    from: matches,
+                    plannedExercises: plannedExercises,
+                    loggedSets: loggedSets
+                )
+
+                if canonical.name != entry.name {
+                    canonical.name = entry.name
+                    didChange = true
+                }
+                if canonical.muscleGroup != entry.muscleGroup {
+                    canonical.muscleGroup = entry.muscleGroup
+                    didChange = true
+                }
+                if canonical.equipment != entry.equipment {
+                    canonical.equipment = entry.equipment
+                    didChange = true
+                }
+
+                let duplicateIDs = Set(matches.map(\.id)).subtracting([canonical.id])
+                guard !duplicateIDs.isEmpty else { continue }
+
+                for plannedExercise in plannedExercises {
+                    if let id = plannedExercise.exercise?.id, duplicateIDs.contains(id) {
+                        plannedExercise.exercise = canonical
+                        didChange = true
+                    }
+                }
+
+                for loggedSet in loggedSets {
+                    if let id = loggedSet.exercise?.id, duplicateIDs.contains(id) {
+                        loggedSet.exercise = canonical
+                        didChange = true
+                    }
+                }
+
+                if recalculatePersonalRecords(for: canonical, loggedSets: loggedSets) {
+                    didChange = true
+                }
+
+                for duplicate in matches where duplicate.id != canonical.id {
+                    context.delete(duplicate)
+                    exercises.removeAll { $0.id == duplicate.id }
+                    didChange = true
+                }
+            }
+
+            if didChange {
+                try context.save()
+            }
+        } catch {
+            return
         }
-        try? context.save()
+
         UserDefaults.standard.set(true, forKey: seededKey)
+    }
+
+    static func normalizedName(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private static func canonicalExercise(
+        from exercises: [Exercise],
+        plannedExercises: [PlannedExercise],
+        loggedSets: [LoggedSet]
+    ) -> Exercise {
+        exercises.max { lhs, rhs in
+            let lhsReferences = referenceCount(for: lhs, plannedExercises: plannedExercises, loggedSets: loggedSets)
+            let rhsReferences = referenceCount(for: rhs, plannedExercises: plannedExercises, loggedSets: loggedSets)
+            if lhsReferences != rhsReferences {
+                return lhsReferences < rhsReferences
+            }
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt > rhs.createdAt
+            }
+            return lhs.id.uuidString > rhs.id.uuidString
+        }!
+    }
+
+    private static func referenceCount(
+        for exercise: Exercise,
+        plannedExercises: [PlannedExercise],
+        loggedSets: [LoggedSet]
+    ) -> Int {
+        plannedExercises.filter { $0.exercise?.id == exercise.id }.count +
+            loggedSets.filter { $0.exercise?.id == exercise.id }.count
+    }
+
+    private static func recalculatePersonalRecords(for exercise: Exercise, loggedSets: [LoggedSet]) -> Bool {
+        let exerciseSets = loggedSets.filter { $0.exercise?.id == exercise.id }
+        var didChange = false
+
+        for set in exerciseSets where set.isPersonalRecord {
+            set.isPersonalRecord = false
+            didChange = true
+        }
+
+        let groupedByReps = Dictionary(grouping: exerciseSets) { $0.reps }
+        for sets in groupedByReps.values {
+            if let best = sets.max(by: { $0.weight < $1.weight }), best.weight > 0 {
+                best.isPersonalRecord = true
+                didChange = true
+            }
+        }
+
+        return didChange
+    }
+
+    private struct ExerciseIdentity: Hashable {
+        let name: String
+        let muscleGroup: MuscleGroup
+        let equipment: Equipment
+
+        init(name: String, muscleGroup: MuscleGroup, equipment: Equipment) {
+            self.name = ExerciseLibrary.normalizedName(name)
+            self.muscleGroup = muscleGroup
+            self.equipment = equipment
+        }
+
+        init(exercise: Exercise) {
+            self.init(name: exercise.name, muscleGroup: exercise.muscleGroup, equipment: exercise.equipment)
+        }
     }
 
     static let seed: [(name: String, muscleGroup: MuscleGroup, equipment: Equipment)] = [
