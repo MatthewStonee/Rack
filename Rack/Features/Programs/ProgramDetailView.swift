@@ -15,7 +15,6 @@ struct ProgramDetailView: View {
     @State private var workoutDeleteTask: Task<Void, Never>?
     @FocusState private var workoutNameFocused: Bool
     @State private var viewModel = ProgramDetailViewModel()
-    @State private var localWorkouts: [WorkoutTemplate] = []
     @State private var isReorderMode = false
     @State private var selectedWorkout: WorkoutTemplate?
 
@@ -31,10 +30,6 @@ struct ProgramDetailView: View {
         program.sortedWorkouts.filter { $0.id != pendingDeleteWorkout?.id }
     }
 
-    private var visibleWorkoutIDs: [UUID] {
-        visibleWorkouts.map(\.id)
-    }
-
     private var canToggleReorderMode: Bool {
         pendingDeleteWorkout == nil && !showingAddWorkout && visibleWorkouts.count > 1
     }
@@ -45,11 +40,11 @@ struct ProgramDetailView: View {
                 VStack(spacing: 20) {
                     programHero
 
-                    if localWorkouts.isEmpty {
+                    if visibleWorkouts.isEmpty {
                         emptyWorkoutsState
                     } else {
                         ReorderableForEach(
-                            items: $localWorkouts,
+                            items: visibleWorkouts,
                             isEnabled: isReorderMode,
                             onCommitOrder: { orderedIDs in
                                 viewModel.reorderWorkouts(in: program, orderedIDs: orderedIDs, context: context)
@@ -94,7 +89,6 @@ struct ProgramDetailView: View {
         .navigationDestination(item: $selectedWorkout) { workout in
             WorkoutTemplateDetailView(workout: workout, onDeleteWorkout: {
                 exitReorderMode()
-                localWorkouts.removeAll { $0.id == workout.id }
                 pendingDeleteWorkout = workout
                 workoutDeleteTask = Task {
                     try? await Task.sleep(for: .seconds(4))
@@ -163,11 +157,6 @@ struct ProgramDetailView: View {
         .sheet(isPresented: $showingEditProgram) {
             CreateProgramView(existingProgram: program)
         }
-        .onAppear { syncLocalWorkouts() }
-        .onChange(of: visibleWorkoutIDs) { _, _ in
-            guard !isReorderMode else { return }
-            syncLocalWorkouts()
-        }
         .undoToast(
             isPresented: Binding(
                 get: { pendingDeleteWorkout != nil },
@@ -178,7 +167,6 @@ struct ProgramDetailView: View {
                 workoutDeleteTask?.cancel()
                 workoutDeleteTask = nil
                 pendingDeleteWorkout = nil
-                syncLocalWorkouts()
             }
         )
     }
@@ -311,17 +299,11 @@ struct ProgramDetailView: View {
 
     private func enterReorderMode() {
         guard canToggleReorderMode else { return }
-        syncLocalWorkouts()
         isReorderMode = true
     }
 
     private func exitReorderMode() {
         isReorderMode = false
-        syncLocalWorkouts()
-    }
-
-    private func syncLocalWorkouts() {
-        localWorkouts = visibleWorkouts
     }
 }
 

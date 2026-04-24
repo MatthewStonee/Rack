@@ -45,14 +45,15 @@ private struct ReorderDragPreview: View {
 }
 
 /// A vertically stacked ForEach that supports handle-based drag-and-drop reordering.
-/// Place inside a ScrollView. The parent owns the working array and persists the
-/// committed order via `onCommitOrder`.
+/// Place inside a ScrollView. The view owns a temporary drag order and asks the
+/// parent to persist the committed order via `onCommitOrder`.
 struct ReorderableForEach<T: Identifiable, Content: View>: View where T.ID: Hashable {
-    @Binding var items: [T]
+    let items: [T]
     let isEnabled: Bool
     let onCommitOrder: (_ orderedIDs: [T.ID]) -> Void
     @ViewBuilder let content: (T, _ dragHandle: ReorderDragHandle) -> Content
 
+    @State private var workingItems: [T]? = nil
     @State private var draggedID: T.ID? = nil
     @State private var targetInsertionIndex: Int? = nil
     @State private var isDropTargeted = false
@@ -64,7 +65,7 @@ struct ReorderableForEach<T: Identifiable, Content: View>: View where T.ID: Hash
 
     var body: some View {
         VStack(spacing: rowSpacing) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            ForEach(Array(displayItems.enumerated()), id: \.element.id) { index, item in
                 content(item, dragHandle(for: item))
                     .opacity(isEnabled && draggedID == item.id ? 0.3 : 1.0)
                     .scaleEffect(isEnabled && draggedID == item.id ? 0.98 : 1.0)
@@ -98,8 +99,8 @@ struct ReorderableForEach<T: Identifiable, Content: View>: View where T.ID: Hash
             }
         }
         .onChange(of: itemTokens) { _, _ in
-            if let targetInsertionIndex, targetInsertionIndex > items.count {
-                self.targetInsertionIndex = items.count
+            if let targetInsertionIndex, targetInsertionIndex > displayItems.count {
+                self.targetInsertionIndex = displayItems.count
                 indicatorTarget = .append
             } else if targetInsertionIndex == nil {
                 indicatorTarget = nil
@@ -107,8 +108,12 @@ struct ReorderableForEach<T: Identifiable, Content: View>: View where T.ID: Hash
         }
     }
 
+    private var displayItems: [T] {
+        workingItems ?? items
+    }
+
     private var itemTokens: [String] {
-        items.map { dragToken(for: $0.id) }
+        displayItems.map { dragToken(for: $0.id) }
     }
 
     private enum RowEdge: Equatable {
@@ -125,7 +130,7 @@ struct ReorderableForEach<T: Identifiable, Content: View>: View where T.ID: Hash
 
     private var appendDropZone: some View {
         dropTarget(
-            at: items.count,
+            at: displayItems.count,
             height: appendZoneHeight,
             indicatorTarget: .append
         )
@@ -237,8 +242,9 @@ struct ReorderableForEach<T: Identifiable, Content: View>: View where T.ID: Hash
         guard isEnabled else { return }
         draggedID = id
         didCommitDrop = false
+        workingItems = items
 
-        if let currentIndex = items.firstIndex(where: { $0.id == id }) {
+        if let currentIndex = displayItems.firstIndex(where: { $0.id == id }) {
             targetInsertionIndex = currentIndex
             indicatorTarget = .row(index: currentIndex, edge: .top)
         }
@@ -274,7 +280,7 @@ struct ReorderableForEach<T: Identifiable, Content: View>: View where T.ID: Hash
         guard isEnabled else { return false }
 
         guard let payloadToken = payloads.first,
-              let draggedID = items.first(where: { dragToken(for: $0.id) == payloadToken })?.id else {
+              let draggedID = displayItems.first(where: { dragToken(for: $0.id) == payloadToken })?.id else {
             resetDragState()
             return false
         }
@@ -290,27 +296,29 @@ struct ReorderableForEach<T: Identifiable, Content: View>: View where T.ID: Hash
     }
 
     private func moveItem(with id: T.ID, to rawIndex: Int) -> Bool {
-        guard let sourceIndex = items.firstIndex(where: { $0.id == id }) else {
+        let currentItems = displayItems
+        guard let sourceIndex = currentItems.firstIndex(where: { $0.id == id }) else {
             return false
         }
 
-        let boundedRawIndex = min(max(rawIndex, 0), items.count)
+        let boundedRawIndex = min(max(rawIndex, 0), currentItems.count)
         let destinationIndex = boundedRawIndex > sourceIndex ? boundedRawIndex - 1 : boundedRawIndex
 
         guard destinationIndex != sourceIndex else {
             return true
         }
 
-        var reordered = items
+        var reordered = currentItems
         let movedItem = reordered.remove(at: sourceIndex)
         reordered.insert(movedItem, at: min(max(destinationIndex, 0), reordered.count))
 
-        items = reordered
+        workingItems = reordered
         onCommitOrder(reordered.map(\.id))
         return true
     }
 
     private func resetDragState() {
+        workingItems = nil
         draggedID = nil
         targetInsertionIndex = nil
         isDropTargeted = false

@@ -7,30 +7,23 @@ import Charts
 struct ProgressTabView: View {
     @Query(sort: \Exercise.name) private var exercises: [Exercise]
     @Query private var plannedExercises: [PlannedExercise]
+    @Query(sort: \LoggedSet.completedAt, order: .reverse) private var loggedSets: [LoggedSet]
     @State private var viewModel = ProgressViewModel()
     @State private var selectedExercise: Exercise?
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .lbs
 
-    private var programExercises: [Exercise] {
-        let usedIDs = Set(plannedExercises.compactMap { $0.exercise?.id })
-        return exercises.filter { usedIDs.contains($0.id) }
-    }
-
-    private var weeklyVolume: Double {
-        let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-        var total: Double = 0
-        for exercise in programExercises {
-            for set in exercise.loggedSetsList where set.completedAt >= oneWeekAgo {
-                total += set.weight * Double(set.reps)
-            }
+    private var overviewDataToken: [String] {
+        exercises.map { "exercise:\($0.id):\($0.name)" } +
+        plannedExercises.map { "planned:\($0.id):\($0.exercise?.id.uuidString ?? "nil")" } +
+        loggedSets.map {
+            "set:\($0.id):\($0.exercise?.id.uuidString ?? "nil"):\($0.reps):\($0.weight):\($0.completedAt.timeIntervalSinceReferenceDate):\($0.isPersonalRecord)"
         }
-        return total
     }
 
     var body: some View {
         NavigationStack {
             Group {
-                if programExercises.isEmpty {
+                if viewModel.overview.programExercises.isEmpty {
                     emptyState
                 } else {
                     exerciseList
@@ -43,8 +36,17 @@ struct ProgressTabView: View {
             .navigationDestination(item: $selectedExercise) { exercise in
                 ExerciseProgressView(exercise: exercise)
             }
-            .onAppear { viewModel.backfillPersonalRecords(exercises: exercises) }
+            .onAppear { refreshOverview() }
+            .onChange(of: overviewDataToken) { _, _ in refreshOverview() }
         }
+    }
+
+    private func refreshOverview() {
+        viewModel.refreshOverview(
+            exercises: exercises,
+            plannedExercises: plannedExercises,
+            loggedSets: loggedSets
+        )
     }
 
     private var backgroundGradient: some View {
@@ -63,10 +65,10 @@ struct ProgressTabView: View {
                 .foregroundStyle(.blue)
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(weeklyVolume > 0 ? String(format: "%.0f", weightUnit.display(weeklyVolume)) : "\u{2014}")
+                Text(viewModel.overview.weeklyVolume > 0 ? String(format: "%.0f", weightUnit.display(viewModel.overview.weeklyVolume)) : "\u{2014}")
                     .font(.system(size: 34, weight: .black))
                     .foregroundStyle(.white)
-                if weeklyVolume > 0 {
+                if viewModel.overview.weeklyVolume > 0 {
                     Text(weightUnit.symbol)
                         .font(.title3)
                         .foregroundStyle(.secondary)
@@ -87,8 +89,11 @@ struct ProgressTabView: View {
             VStack(spacing: 12) {
                 weeklyVolumeCard
 
-                ForEach(programExercises) { exercise in
-                    ExerciseProgressRow(exercise: exercise)
+                ForEach(viewModel.overview.programExercises) { exercise in
+                    ExerciseProgressRow(
+                        exercise: exercise,
+                        summary: viewModel.overview.summariesByExerciseID[exercise.id] ?? ExerciseProgressSummary()
+                    )
                         .contentShape(Rectangle())
                         .onTapGesture {
                             selectedExercise = exercise
@@ -127,10 +132,8 @@ struct ProgressTabView: View {
 
 struct ExerciseProgressRow: View {
     let exercise: Exercise
+    let summary: ExerciseProgressSummary
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .lbs
-
-    private var sortedSets: [LoggedSet] { exercise.loggedSetsList.sorted { $0.completedAt > $1.completedAt } }
-    private var prWeight: Double { sortedSets.map(\.weight).max() ?? 0 }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -155,9 +158,9 @@ struct ExerciseProgressRow: View {
                         Text("Last PR")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                        if prWeight > 0 {
+                        if summary.prWeight > 0 {
                             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                                Text(prWeight.formattedWeight(unit: weightUnit))
+                                Text(summary.prWeight.formattedWeight(unit: weightUnit))
                                     .font(.title3.bold())
                                     .foregroundStyle(.white)
                                 Text(weightUnit.symbol)
@@ -179,7 +182,7 @@ struct ExerciseProgressRow: View {
                         Text("Sets")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                        Text("\(sortedSets.count)")
+                        Text("\(summary.setCount)")
                             .font(.title3.bold())
                             .foregroundStyle(.white)
                     }
@@ -207,20 +210,32 @@ struct ExerciseProgressRow: View {
 struct ExerciseProgressView: View {
     @Environment(\.modelContext) private var context
     let exercise: Exercise
+    @Query(sort: \LoggedSet.completedAt) private var loggedSets: [LoggedSet]
     @State private var viewModel = ProgressViewModel()
     @State private var showingQuickLog = false
     @State private var setToEdit: LoggedSet?
     @Namespace private var pickerNamespace
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .lbs
 
-    var body: some View {
-        let allSets = exercise.loggedSetsList.sorted { $0.completedAt < $1.completedAt }
-        let filteredSets = viewModel.filteredSets(allSets, for: viewModel.timeRange)
-        let chartPoints = viewModel.maxWeightPoints(for: filteredSets)
-        let pr = viewModel.personalRecord(for: allSets)
-        let totalVol = viewModel.totalVolume(for: filteredSets)
-        let recentSets = Array(filteredSets.suffix(20).reversed())
+    init(exercise: Exercise) {
+        self.exercise = exercise
+        let exerciseID = exercise.id
+        _loggedSets = Query(
+            filter: #Predicate<LoggedSet> { set in
+                set.exercise?.id == exerciseID
+            },
+            sort: \LoggedSet.completedAt
+        )
+    }
 
+    private var setDataToken: [String] {
+        loggedSets.map {
+            "\($0.id):\($0.reps):\($0.weight):\($0.completedAt.timeIntervalSinceReferenceDate):\($0.isPersonalRecord)"
+        }
+    }
+
+    var body: some View {
+        let metrics = viewModel.exerciseMetrics
         ScrollView {
             VStack(spacing: 16) {
                 Text(exercise.name)
@@ -228,10 +243,10 @@ struct ExerciseProgressView: View {
                     .foregroundStyle(.white)
                     .tracking(-0.5)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                statsCard(pr: pr, totalVol: totalVol)
+                statsCard(pr: metrics.personalRecord, totalVol: metrics.totalVolume)
                 timeRangePicker
-                chartCard(chartPoints: chartPoints)
-                setHistoryCard(recentSets: recentSets, isEmpty: filteredSets.isEmpty)
+                chartCard(chartPoints: metrics.chartPoints)
+                setHistoryCard(recentSets: metrics.recentSets, isEmpty: !metrics.hasFilteredSets)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -278,6 +293,10 @@ struct ExerciseProgressView: View {
         .sheet(item: $setToEdit) { set in
             EditLoggedSetSheet(set: set, viewModel: viewModel)
         }
+        .onAppear { viewModel.refreshExerciseMetrics(with: loggedSets) }
+        .onChange(of: setDataToken) { _, _ in
+            viewModel.refreshExerciseMetrics(with: loggedSets)
+        }
     }
 
     private func deleteSet(_ set: LoggedSet) {
@@ -315,7 +334,7 @@ struct ExerciseProgressView: View {
                 ForEach(ProgressViewModel.TimeRange.allCases, id: \.self) { range in
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                            viewModel.timeRange = range
+                            viewModel.updateTimeRange(range, sets: loggedSets)
                         }
                     } label: {
                         Text(range.rawValue)
