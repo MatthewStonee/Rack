@@ -4,7 +4,7 @@ import OSLog
 
 @main
 struct RackApp: App {
-    private static let logger = Logger(subsystem: "com.matthewstone.rack", category: "Persistence")
+    private static let logger = Logger(subsystem: "com.matthewstone.liftly", category: "Persistence")
     let container: ModelContainer
 
     init() {

@@ -1,6 +1,6 @@
-# Rack
+# Liftly
 
-A personal iOS fitness and workout programming app built with SwiftUI. Rack helps you build structured training programs, log sets and reps, and track your progress over time.
+A personal iOS fitness and workout programming app built with SwiftUI. Liftly helps you build structured training programs, log sets and reps, and track your progress over time.
 
 ## Features
 

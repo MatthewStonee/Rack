@@ -1,7 +1,7 @@
-# Rack — Codex Instructions
+# Liftly — Codex Instructions
 
 ## Project Overview
-iOS fitness and workout programming app built with SwiftUI. Helps users track programs, exercises, sets, reps, and progress over time.
+Liftly is an iOS fitness and workout programming app built with SwiftUI. Helps users track programs, exercises, sets, reps, and progress over time.
 
 ## Architecture & Conventions
 - SwiftUI for all UI (no UIKit unless SwiftUI can't do it)
