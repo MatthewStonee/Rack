@@ -36,5 +36,8 @@ Carthage/Build/
 .Spotlight-V100
 .Trashes
 
+# Local agent tooling
+.claude/
+
 # Xcode Previews
 PreviewContent/
